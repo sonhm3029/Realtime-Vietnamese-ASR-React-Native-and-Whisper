@@ -11,36 +11,49 @@ function App() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
     let audioChunks = [];
+    let timer; // Timer variable to track silence duration
 
     mediaRecorder.addEventListener("dataavailable", (event) => {
-      audioChunks.push(event.data);
+        audioChunks.push(event.data);
     });
 
     mediaRecorder.addEventListener("stop", async () => {
-      const audioBlob = new Blob(audioChunks);
-      const audioUrl = URL.createObjectURL(audioBlob);
-      setAudioUrl(audioUrl);
+        const audioBlob = new Blob(audioChunks);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setAudioUrl(audioUrl);
 
-      // Send audioBlob to backend for transcription
-      const formData = new FormData();
-      formData.append("file", audioBlob, "ok.wav");
+        // Send audioBlob to backend for transcription
+        const formData = new FormData();
+        formData.append("file", audioBlob, "ok.wav");
 
-      const response = await fetch("http://localhost:8000/speech2text", {
-        method: "POST",
-        body: formData,
-        headers: {
-          Ivirsekey: "Ivirse speech2text vippro 01",
-        },
-      });
-      console.log("THERE");
-      const data = await response.json();
-      setTranscript(data.data);
+        const response = await fetch("http://localhost:8000/speech2text", {
+            method: "POST",
+            body: formData,
+            headers: {
+                Ivirsekey: "Ivirse speech2text vippro 01",
+            },
+        });
+        console.log("THERE");
+        const data = await response.json();
+        setTranscript(data.data);
     });
 
     mediaRecorder.start();
-    setTimeout(() => {
-      mediaRecorder.stop();
-    }, 5000);
+
+    // Function to stop recording after 5 seconds of silence
+    const stopRecordingAfterSilence = () => {
+        mediaRecorder.stop();
+    };
+
+    // Function to reset timer
+    const resetTimer = () => {
+        clearTimeout(timer);
+        timer = setTimeout(stopRecordingAfterSilence, 5000); // 5 seconds of silence
+    };
+
+    // Reset timer whenever there's audio input
+    stream.getAudioTracks()[0].addEventListener("ended", resetTimer);
+    resetTimer(); // Start the initial timer
   };
 
   const stopRecording = () => {
