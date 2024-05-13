@@ -24,7 +24,7 @@ function App() {
 
         // Send audioBlob to backend for transcription
         const formData = new FormData();
-        formData.append("file", audioBlob, "ok.wav");
+        formData.append("file", audioBlob, "record.wav");
 
         const response = await fetch("http://localhost:8000/speech2text", {
             method: "POST",
