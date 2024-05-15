@@ -40,10 +40,13 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [ws, setWs] = useState(null);
   const [transcription, setTranscription] = useState('');
+  let timeoutEnd;
 
   useEffect(() => {
     socket.on('transcription', data => {
       console.log('SOCKET', data.text);
+      clearTimeout(timeoutEnd);
+      timeoutEnd = setTimeout(stopStreaming, 6000);
       setTranscription(data.text);
     });
 
