@@ -44,7 +44,7 @@ export default function App() {
   useEffect(() => {
     socket.on('transcription', data => {
       console.log('SOCKET', data.text);
-      setTranscription(prev => prev + data.text);
+      setTranscription(data.text);
     });
 
     return () => {
@@ -68,9 +68,10 @@ export default function App() {
       channels: 1,
       bitsPerSample: 16,
       audioSource: 6,
-      bufferSize: 9600,
+      bufferSize: 14400,
     });
     LiveAudioStream.start();
+    socket.emit('start_transcript', 'START');
 
     LiveAudioStream.on('data', async data => {
       try {
