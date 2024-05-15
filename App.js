@@ -74,7 +74,7 @@ export default function App() {
       bufferSize: 14400,
     });
     LiveAudioStream.start();
-    socket.emit('start_transcript', 'START');
+    socket.emit('control_transcript', 'START');
 
     LiveAudioStream.on('data', async data => {
       try {
@@ -90,6 +90,7 @@ export default function App() {
   const stopStreaming = () => {
     LiveAudioStream.stop();
     setIsStreaming(false);
+    socket.emit('control_transcript', 'END');
   };
 
   return (
