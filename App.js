@@ -43,17 +43,23 @@ export default function App() {
   let timeoutEnd;
 
   useEffect(() => {
-    socket.on('transcription', data => {
+    socket.on('connect', () => {
+      console.log('SOCKER ID', socket.id); // "G5p5..."
+    });
+    socket.on(`transcription_${socket.id}`, data => {
       console.log('SOCKET', data.text);
       clearTimeout(timeoutEnd);
-      timeoutEnd = setTimeout(stopStreaming, 6000);
+      timeoutEnd = setTimeout(stopStreaming, 5000);
       setTranscription(data.text);
     });
+
+    // Handle error
+    socket.on(`error_${socket.id}`, data => {});
 
     return () => {
       socket.off('transcription');
     };
-  }, []);
+  }, [socket.id]);
 
   useEffect(() => {
     (async () => {
@@ -74,12 +80,12 @@ export default function App() {
       bufferSize: 14400,
     });
     LiveAudioStream.start();
-    socket.emit('control_transcript', 'START');
+    socket.emit('control_transcript', {id: socket.id, action: 'START'});
 
     LiveAudioStream.on('data', async data => {
       try {
         let chunk = Buffer.from(data, 'base64');
-        socket.emit('audio_chunk', chunk);
+        socket.emit('audio_chunk', socket.id, chunk);
         console.log('CHUNK RECEIVE');
       } catch (error) {
         console.log('STREAM ERROR', error);
@@ -90,7 +96,7 @@ export default function App() {
   const stopStreaming = () => {
     LiveAudioStream.stop();
     setIsStreaming(false);
-    socket.emit('control_transcript', 'END');
+    socket.emit('control_transcript', {id: socket.id, action: 'END'});
   };
 
   return (
