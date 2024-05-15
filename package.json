@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
+    "start": "react-native start --reset-cache",
+    "restart": "adb reverse tcp:8081 tcp:8081 && react-native start --reset-cache",
+    "android": "cd android && ./gradlew clean && cd ../ && react-native run-android --active-arch-only",
     "ios": "react-native run-ios",
     "lint": "eslint .",
-    "start": "react-native start",
     "test": "jest"
   },
   "dependencies": {

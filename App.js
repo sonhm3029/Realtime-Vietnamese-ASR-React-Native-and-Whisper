@@ -62,12 +62,13 @@ export default function App() {
   }, []);
 
   const startStreaming = () => {
+    setTranscription('');
     LiveAudioStream.init({
-      sampleRate: 32000,
+      sampleRate: 16000,
       channels: 1,
       bitsPerSample: 16,
       audioSource: 6,
-      bufferSize: 3200,
+      bufferSize: 9600,
     });
     LiveAudioStream.start();
 
