@@ -1,74 +1,87 @@
-import { useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import io from "socket.io-client";
 import "./App.css";
+import * as RecordRTC from "recordrtc";
+
+const socket = io("wss://8041-183-91-15-7.ngrok-free.app", {
+  extraHeaders: {
+    "ngrok-skip-browser-warning": "true",
+  },
+});
 
 function App() {
   const [transcript, setTranscript] = useState("");
-  const [audioUrl, setAudioUrl] = useState("");
-  const [isRecording, setRecording] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
 
-  const startRecording = async () => {
-    setRecording(true);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mediaRecorder = new MediaRecorder(stream);
-    let audioChunks = [];
-    let timer; // Timer variable to track silence duration
-
-    mediaRecorder.addEventListener("dataavailable", (event) => {
-        audioChunks.push(event.data);
+  useEffect(() => {
+    socket.on(`transcription_${socket.id}`, (data) => {
+      setTranscript(data.text);
     });
 
-    mediaRecorder.addEventListener("stop", async () => {
-        const audioBlob = new Blob(audioChunks);
-        const audioUrl = URL.createObjectURL(audioBlob);
-        setAudioUrl(audioUrl);
+    return () => {
+      socket.off("transcription");
+    };
+  }, [socket.id]);
 
-        // Send audioBlob to backend for transcription
-        const formData = new FormData();
-        formData.append("file", audioBlob, "record.wav");
+  console.log(socket, "SOCKET");
+  const sendBuffer = useCallback(
+    (buffer) => {
+      console.log("SEND", socket.id);
+      socket.emit("audio_chunk", socket.id, buffer);
+    },
+    [socket.connected]
+  );
 
-        const response = await fetch("http://localhost:8000/speech2text", {
-            method: "POST",
-            body: formData,
-            headers: {
-                Ivirsekey: "Ivirse speech2text vippro 01",
+  const startRecording = useCallback(() => {
+    try {
+      setTranscript("");
+      socket.emit("control_transcript", { id: socket.id, action: "START" });
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          mediaRecorderRef.current = new RecordRTC(stream, {
+            type: "audio",
+            mimeType: "audio/webm;codecs=pcm",
+            recorderType: RecordRTC.StereoAudioRecorder,
+            timeSlice: 300,
+            desiredSampRate: 16000,
+            numberOfAudioChannels: 1,
+            bufferSize: 4096,
+            audioBitsPerSecond: 128000,
+            ondataavailable: async (blob) => {
+              console.log("NEW DATA");
+              const buffer = await blob.arrayBuffer();
+              sendBuffer(buffer);
             },
+          });
+          mediaRecorderRef.current.startRecording();
+        })
+        .catch((err) => {
+          console.log(err);
         });
-        console.log("THERE");
-        const data = await response.json();
-        setTranscript(data.data);
-    });
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+    }
+  }, socket.connected);
 
-    mediaRecorder.start();
-
-    // Function to stop recording after 5 seconds of silence
-    const stopRecordingAfterSilence = () => {
-        mediaRecorder.stop();
-    };
-
-    // Function to reset timer
-    const resetTimer = () => {
-        clearTimeout(timer);
-        timer = setTimeout(stopRecordingAfterSilence, 5000); // 5 seconds of silence
-    };
-
-    // Reset timer whenever there's audio input
-    stream.getAudioTracks()[0].addEventListener("ended", resetTimer);
-    resetTimer(); // Start the initial timer
-  };
-
-  const stopRecording = () => {
-    setRecording(false);
-  };
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      console.log("STOP RECORDING")
+      setIsRecording(false);
+      mediaRecorderRef.current.stopRecording();
+      socket.emit("control_transcript", { id: socket.id, action: "END" });
+    }
+  }, [socket.id]);
 
   return (
-    <div>
-      {isRecording ? (
-        <button onClick={stopRecording}>Stop recording</button>
-      ) : (
-        <button onClick={startRecording}>Start talk</button>
-      )}
-      <div>{transcript}</div>
-      <audio src={audioUrl}></audio>
+    <div className="App">
+      <h1>Real-Time Speech Recognition</h1>
+      <button onClick={isRecording ? stopRecording : startRecording}>
+        {isRecording ? "Stop Recording" : "Start Recording"}
+      </button>
+      <p>{transcript}</p>
     </div>
   );
 }
